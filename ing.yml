@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sample-ing
+  namespace: ns1
+  labels:
+    name: sample
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+    - hosts:
+        - test.abdullahgroup.trade
+      secretName: lts-secret
+  rules:
+    - host: test.abdullahgroup.trade
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ns2-svc
+                port:
+                  number: 3000

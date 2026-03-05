@@ -1,0 +1,93 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ns1-deploy
+  namespace: ns1
+  labels:
+    app: ns1-app
+spec:
+  replicas: 2
+  minReadySeconds: 10
+  revisionHistoryLimit: 20
+  selector:
+    matchLabels:
+      app: ns1-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: ns1-app
+    spec:
+      containers:
+        - name: ns1-container
+          image: httpd
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: SVC_URL
+              value: "http://ns2-svc.ns2.svc.cluster.local:3000"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "125m"
+            limits:
+              memory: "125Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ns2-svc
+  namespace: ns1
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app: ns1-app
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ns1-deploy-hpa
+  namespace: ns1
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ns1-deploy
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 150
+      selectPolicy: Max
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
